@@ -168,5 +168,3 @@ def check_slate_warning(
             slate=game.slate,
             remaining_teams=available_teams,
         )
-
-    return None
