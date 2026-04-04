@@ -1,25 +1,48 @@
-"""Fetch odds from the-odds-api.com."""
+"""Fetch odds from the-odds-api.com.
+
+Caches raw API responses to disk to avoid burning rate-limited requests.
+Only makes a new API call if the cache is older than the configured interval.
+"""
+import json
 import httpx
 from datetime import datetime
+from pathlib import Path
 
 from app.database import SessionLocal
 from app.models import Game, Team, OddsSnapshot
 from app.config import settings
 
 ODDS_API_URL = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds"
+CACHE_DIR = Path(__file__).parent / "cache"
+CACHE_FILE = CACHE_DIR / "odds_latest.json"
 
 # Sources we care about most (sharp books + major books)
 PREFERRED_BOOKS = {"pinnacle", "bookmaker", "draftkings", "fanduel", "betmgm"}
 
 
-def fetch_current_odds():
-    """Fetch current NFL odds and store snapshots."""
+def _cache_is_fresh() -> bool:
+    """Check if cached odds are still within the fetch interval."""
+    if not CACHE_FILE.exists():
+        return False
+    age_minutes = (datetime.utcnow().timestamp() - CACHE_FILE.stat().st_mtime) / 60
+    return age_minutes < settings.odds_fetch_interval_minutes
+
+
+def fetch_current_odds(force: bool = False):
+    """Fetch current NFL odds and store snapshots.
+
+    Uses disk cache to avoid redundant API calls. Pass force=True to bypass cache.
+    """
     if not settings.odds_api_key:
         print("No ODDS_API_KEY set — skipping odds fetch")
         return
 
-    db = SessionLocal()
-    try:
+    CACHE_DIR.mkdir(exist_ok=True)
+
+    if not force and _cache_is_fresh():
+        print(f"Using cached odds (< {settings.odds_fetch_interval_minutes}m old)")
+        events = json.loads(CACHE_FILE.read_text())
+    else:
         resp = httpx.get(
             ODDS_API_URL,
             params={
@@ -31,7 +54,17 @@ def fetch_current_odds():
             timeout=30,
         )
         resp.raise_for_status()
+        remaining = resp.headers.get("x-requests-remaining", "?")
+        print(f"API call made. Requests remaining this month: {remaining}")
         events = resp.json()
+        CACHE_FILE.write_text(json.dumps(events, indent=2))
+
+    if not events:
+        print("No events returned (NFL may be off-season)")
+        return
+
+    db = SessionLocal()
+    try:
 
         teams_by_name = {}
         for team in db.query(Team).all():
