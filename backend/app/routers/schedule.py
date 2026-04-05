@@ -32,6 +32,9 @@ def list_games(
         team_row = db.query(Team).filter(Team.abbreviation == team.upper()).first()
         if team_row:
             q = q.filter((Game.home_team_id == team_row.id) | (Game.away_team_id == team_row.id))
+        else:
+            # Unknown abbreviation — return nothing rather than silently dropping the filter
+            return []
     return q.order_by(Game.game_time).all()
 
 

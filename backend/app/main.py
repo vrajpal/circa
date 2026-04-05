@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, Base
-from app.routers import auth, schedule, odds, picks, consensus
+from app.routers import auth, schedule, odds, picks, consensus, team_stats
 
 # Create tables on startup (Alembic used for production migrations)
 Base.metadata.create_all(bind=engine)
@@ -22,6 +22,7 @@ app.include_router(schedule.router)
 app.include_router(odds.router)
 app.include_router(picks.router)
 app.include_router(consensus.router)
+app.include_router(team_stats.router)
 
 
 @app.get("/api/health")
