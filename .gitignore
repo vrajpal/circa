@@ -13,3 +13,9 @@ frontend/dist/
 .vscode/
 .idea/
 *.env
+
+# Claude
+.claude/
+
+# Coverage
+*.coverage
