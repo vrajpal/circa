@@ -59,15 +59,16 @@ def normalize_espn_team_stats(raw_stats: list[dict], games_played: int) -> dict:
             return round(num / den * 100, 1)
         return None
 
-    # Red zone: ESPN uses 'redZoneTouchdowns' and 'redZoneAttempts'
+    # Red zone: ESPN provides 'redzoneTouchdownPct' directly, or we compute
+    # from 'redZoneTouchdowns'/'redZoneAttempts' (legacy field names)
     rz_attempts_raw = lookup.get("redZoneAttempts")
     rz_tds_raw = lookup.get("redZoneTouchdowns")
-    rz_td_pct = None
-    if rz_tds_raw is not None and rz_attempts_raw and rz_attempts_raw > 0:
+    rz_td_pct = direct("redzoneTouchdownPct")
+    if rz_td_pct is None and rz_tds_raw is not None and rz_attempts_raw and rz_attempts_raw > 0:
         rz_td_pct = round(rz_tds_raw / rz_attempts_raw * 100, 1)
 
-    # Third down: ESPN uses 'thirdDownConversions' and 'thirdDownAttempts'
-    third_pct = pct("thirdDownConversions", "thirdDownAttempts")
+    # Third down: ESPN uses 'thirdDownConvPct' or 'thirdDownConvs'/'thirdDownAttempts'
+    third_pct = direct("thirdDownConvPct") or pct("thirdDownConvs", "thirdDownAttempts") or pct("thirdDownConversions", "thirdDownAttempts")
 
     # Points: ESPN has 'totalPointsPerGame' for offensive and a separate
     # defensive category. Fall back to computing from totals if needed.
@@ -89,14 +90,15 @@ def normalize_espn_team_stats(raw_stats: list[dict], games_played: int) -> dict:
     )
 
     sacks_pg = per_game("sacks")
-    takeaways_pg = per_game("interceptions")  # ESPN uses interceptions here;
-    # turnovers forced = INT + fumbles recovered, but ESPN splits these
-    fumbles_recovered = lookup.get("fumblesRecovered", 0.0)
-    interceptions = lookup.get("interceptions", 0.0)
-    takeaways_total = interceptions + fumbles_recovered
+    # Takeaways: ESPN provides 'totalTakeaways' directly, or we sum INT + fumbles recovered
+    takeaways_total = lookup.get("totalTakeaways")
+    if takeaways_total is None:
+        fumbles_recovered = lookup.get("fumblesRecovered", 0.0)
+        interceptions = lookup.get("interceptions", 0.0)
+        takeaways_total = interceptions + fumbles_recovered
     takeaways_pg = round(takeaways_total / gp, 2) if takeaways_total else None
 
-    turnovers_total = lookup.get("turnovers") or (
+    turnovers_total = lookup.get("totalGiveaways") or lookup.get("turnovers") or (
         (lookup.get("fumblesLost", 0) or 0) + (lookup.get("interceptionsThrown", 0) or 0)
     )
     turnovers_pg = round(turnovers_total / gp, 2) if turnovers_total else None
@@ -172,11 +174,30 @@ def normalize_espn_standing(entry: dict) -> dict:
     ties = _int("ties")
     win_pct = _float("winPercent")
 
-    # Home/away splits: ESPN uses 'homeWins'/'homeLosses'/'roadWins'/'roadLosses'
+    # Home/away splits: ESPN may use 'homeWins'/'homeLosses' or display strings
+    # like "Home": "8-0", "Road": "5-4"
     home_wins = _int("homeWins")
     home_losses = _int("homeLosses")
     away_wins = _int("roadWins")
     away_losses = _int("roadLosses")
+
+    # Parse from display strings if numeric fields are missing
+    if home_wins is None:
+        home_str = lookup.get("Home", "")
+        if isinstance(home_str, str) and "-" in home_str:
+            parts = home_str.split("-")
+            try:
+                home_wins, home_losses = int(parts[0]), int(parts[1])
+            except (ValueError, IndexError):
+                pass
+    if away_wins is None:
+        road_str = lookup.get("Road", "")
+        if isinstance(road_str, str) and "-" in road_str:
+            parts = road_str.split("-")
+            try:
+                away_wins, away_losses = int(parts[0]), int(parts[1])
+            except (ValueError, IndexError):
+                pass
 
     # Division/conference rank and playoff seeding come from the parent group
     # context, not the entry itself. The caller should pass these in via the

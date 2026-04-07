@@ -145,14 +145,24 @@ def _current_week(season: int) -> int:
 # Games played helpers
 # ---------------------------------------------------------------------------
 
-def _games_played_from_stats(raw: dict) -> int:
-    """Extract the games played count from ESPN stats response.
+def _extract_categories(raw: dict) -> list[dict]:
+    """Extract the stats categories list from the ESPN response.
 
-    ESPN puts this at splits.categories[*].stats where name == 'gamesPlayed'.
+    ESPN has used two layouts over time:
+      - Legacy: raw['splits']['categories']
+      - Current: raw['results']['stats']['categories']
     """
-    for category in raw.get("splits", {}).get("categories", []):
+    cats = raw.get("splits", {}).get("categories", [])
+    if cats:
+        return cats
+    return raw.get("results", {}).get("stats", {}).get("categories", [])
+
+
+def _games_played_from_stats(raw: dict) -> int:
+    """Extract the games played count from ESPN stats response."""
+    for category in _extract_categories(raw):
         for stat in category.get("stats", []):
-            if stat.get("name") == "gamesPlayed":
+            if stat.get("name") in ("gamesPlayed", "teamGamesPlayed"):
                 try:
                     return int(stat["value"])
                 except (KeyError, TypeError, ValueError):
@@ -187,7 +197,7 @@ def ingest_team_stats(season: int, week: int, force: bool = False) -> None:
                 errors += 1
                 continue
 
-            categories = raw.get("splits", {}).get("categories", [])
+            categories = _extract_categories(raw)
             if not categories:
                 print(f"  No stats categories for {abbr} in ESPN response")
                 errors += 1
@@ -257,56 +267,72 @@ def ingest_standings(season: int, force: bool = False) -> None:
             conf_name = conf_group.get("name", "")
             conf_rank_counter[conf_name] = 0
 
+            # ESPN uses two layouts:
+            #   - Division-grouped: conf_group['children'] -> division groups -> entries
+            #   - Flat per-conference: conf_group['standings']['entries']
             div_groups = conf_group.get("children", [])
-            for div_group in div_groups:
-                entries = div_group.get("standings", {}).get("entries", [])
+            if div_groups:
+                all_entries = []
+                for div_group in div_groups:
+                    entries = div_group.get("standings", {}).get("entries", [])
+                    for div_rank, entry in enumerate(entries, start=1):
+                        entry["_div_rank"] = div_rank
+                        all_entries.append(entry)
+            else:
+                all_entries = conf_group.get("standings", {}).get("entries", [])
+                for entry in all_entries:
+                    entry["_div_rank"] = None
 
-                for div_rank, entry in enumerate(entries, start=1):
-                    conf_rank_counter[conf_name] += 1
-                    conf_rank = conf_rank_counter[conf_name]
+            for entry in all_entries:
+                conf_rank_counter[conf_name] += 1
+                conf_rank = conf_rank_counter[conf_name]
 
-                    # ESPN abbreviation is inside entry['team']['abbreviation']
-                    team_abbr = entry.get("team", {}).get("abbreviation", "")
-                    # ESPN sometimes uses different abbreviations
-                    team_abbr = {"WSH": "WAS", "JAX": "JAX"}.get(team_abbr, team_abbr)
-                    team = teams_by_abbr.get(team_abbr)
-                    if not team:
-                        print(f"  Unknown team abbreviation in standings: {team_abbr!r}")
-                        continue
+                # ESPN abbreviation is inside entry['team']['abbreviation']
+                team_abbr = entry.get("team", {}).get("abbreviation", "")
+                # ESPN sometimes uses different abbreviations
+                team_abbr = {"WSH": "WAS", "JAX": "JAX"}.get(team_abbr, team_abbr)
+                team = teams_by_abbr.get(team_abbr)
+                if not team:
+                    print(f"  Unknown team abbreviation in standings: {team_abbr!r}")
+                    continue
 
-                    normalized = normalize_espn_standing(entry)
-                    normalized["division_rank"] = div_rank
-                    normalized["conference_rank"] = conf_rank
-                    # Playoff seed: top 7 from each conference make playoffs.
-                    # Simple rule: conf_rank <= 7 means you're currently seeded.
+                normalized = normalize_espn_standing(entry)
+                div_rank = entry.pop("_div_rank", None)
+                normalized["division_rank"] = div_rank
+                normalized["conference_rank"] = conf_rank
+                # Use ESPN's playoffSeed if available, else infer from conf rank
+                seed_stat = next((s for s in entry.get("stats", []) if s.get("name") == "playoffSeed"), None)
+                if seed_stat and seed_stat.get("value"):
+                    normalized["playoff_seed"] = int(seed_stat["value"])
+                else:
                     normalized["playoff_seed"] = conf_rank if conf_rank <= 7 else None
 
-                    now = datetime.utcnow()
-                    existing = (
-                        db.query(TeamStanding)
-                        .filter(
-                            TeamStanding.team_id == team.id,
-                            TeamStanding.season == season,
-                            TeamStanding.source == SOURCE,
-                        )
-                        .first()
+                now = datetime.utcnow()
+                existing = (
+                    db.query(TeamStanding)
+                    .filter(
+                        TeamStanding.team_id == team.id,
+                        TeamStanding.season == season,
+                        TeamStanding.source == SOURCE,
                     )
+                    .first()
+                )
 
-                    if existing:
-                        for field, value in normalized.items():
-                            setattr(existing, field, value)
-                        existing.updated_at = now
-                        updated += 1
-                    else:
-                        standing = TeamStanding(
-                            team_id=team.id,
-                            season=season,
-                            source=SOURCE,
-                            updated_at=now,
-                            **normalized,
-                        )
-                        db.add(standing)
-                        added += 1
+                if existing:
+                    for field, value in normalized.items():
+                        setattr(existing, field, value)
+                    existing.updated_at = now
+                    updated += 1
+                else:
+                    standing = TeamStanding(
+                        team_id=team.id,
+                        season=season,
+                        source=SOURCE,
+                        updated_at=now,
+                        **normalized,
+                    )
+                    db.add(standing)
+                    added += 1
 
         db.commit()
         print(f"Standings (season={season}): added={added}, updated={updated}")

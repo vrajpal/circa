@@ -2,14 +2,22 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api';
 import OddsChart from '../components/OddsChart';
+import MatchupStats from '../components/MatchupStats';
 
 export default function GameDetail() {
   const { id } = useParams();
   const [game, setGame] = useState(null);
   const [snapshots, setSnapshots] = useState([]);
+  const [matchup, setMatchup] = useState(null);
 
   useEffect(() => {
-    api.get(`/schedule/games/${id}`).then((res) => setGame(res.data)).catch(() => {});
+    api.get(`/schedule/games/${id}`).then((res) => {
+      setGame(res.data);
+      const g = res.data;
+      api.get('/team-stats/matchup', {
+        params: { home: g.home_team.abbreviation, away: g.away_team.abbreviation, season: g.season, week: g.week }
+      }).then((r) => setMatchup(r.data)).catch(() => {});
+    }).catch(() => {});
     api.get(`/odds/game/${id}`).then((res) => setSnapshots(res.data)).catch(() => {});
   }, [id]);
 
@@ -56,6 +64,8 @@ export default function GameDetail() {
 
         <OddsChart snapshots={snapshots} />
       </div>
+
+      <MatchupStats matchup={matchup} />
     </div>
   );
 }
