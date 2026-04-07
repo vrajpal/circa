@@ -1,19 +1,20 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class TeamResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     abbreviation: str
     name: str
     conference: str
     division: str
 
-    class Config:
-        from_attributes = True
-
 
 class GameResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     season: int
     week: int
@@ -21,6 +22,3 @@ class GameResponse(BaseModel):
     away_team: TeamResponse
     game_time: datetime
     slate: str
-
-    class Config:
-        from_attributes = True

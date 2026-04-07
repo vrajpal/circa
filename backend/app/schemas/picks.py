@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.schemas.schedule import TeamResponse, GameResponse
 from app.schemas.auth import UserResponse
@@ -13,6 +13,8 @@ class PickCreate(BaseModel):
 
 
 class PickResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user: UserResponse
     game: GameResponse
@@ -23,9 +25,6 @@ class PickResponse(BaseModel):
     comment: str | None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class ConsensusPickCreate(BaseModel):
     game_id: int | None = None
@@ -34,6 +33,8 @@ class ConsensusPickCreate(BaseModel):
 
 
 class ConsensusPickResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     season: int
     week: int
@@ -41,9 +42,6 @@ class ConsensusPickResponse(BaseModel):
     game: GameResponse | None
     picked_team: TeamResponse
     decided_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class SlateWarning(BaseModel):
