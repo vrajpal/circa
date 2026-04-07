@@ -1,11 +1,13 @@
 """Pydantic schemas for team statistics API responses."""
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.schemas.schedule import TeamResponse
 
 
 class TeamStatSnapshotResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     team: TeamResponse
     season: int
@@ -35,11 +37,10 @@ class TeamStatSnapshotResponse(BaseModel):
     point_differential_per_game: float | None
     fetched_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class TeamStandingResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     team: TeamResponse
     season: int
@@ -58,9 +59,6 @@ class TeamStandingResponse(BaseModel):
     away_wins: int | None
     away_losses: int | None
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class MatchupComparisonResponse(BaseModel):
