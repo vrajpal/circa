@@ -22,3 +22,5 @@ class GameResponse(BaseModel):
     away_team: TeamResponse
     game_time: datetime
     slate: str
+    score_home: int | None = None
+    score_away: int | None = None

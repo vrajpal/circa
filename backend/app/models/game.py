@@ -16,6 +16,8 @@ class Game(Base):
     away_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
     game_time: Mapped[datetime] = mapped_column(DateTime)
     slate: Mapped[str] = mapped_column(String(20), default="regular")  # regular, thanksgiving, christmas, etc.
+    score_home: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    score_away: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     home_team = relationship("Team", foreign_keys=[home_team_id], lazy="joined")
     away_team = relationship("Team", foreign_keys=[away_team_id], lazy="joined")
