@@ -1,7 +1,5 @@
 # Python
 backend/venv/
-backend/*.db
-backend/.env
 __pycache__/
 *.pyc
 
@@ -12,10 +10,20 @@ frontend/dist/
 # IDE
 .vscode/
 .idea/
+
+# Environment
 *.env
+
+# Database
+*.db
+
+# Testing / Coverage
+*.coverage
+backend/htmlcov/
+.pytest_cache/
+
+# Ingestion cache (regenerable via fetchers)
+backend/ingestion/cache/
 
 # Claude
 .claude/
-
-# Coverage
-*.coverage
