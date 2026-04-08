@@ -1,0 +1,110 @@
+# CI pipeline for Circa — runs on every PR targeting master and on every push to master.
+#
+# Jobs run in parallel because backend (Python/pytest) and frontend (Node/Vite)
+# have no shared dependencies. Both must pass before a PR can be merged.
+#
+# No Docker, no deployment. This is pure validation: tests + build.
+
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+# Cancel any in-progress run for the same branch/PR when a new commit is pushed.
+# This avoids wasting runner minutes on superseded commits.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Backend — install Python deps, run all 202 pytest tests
+  # ---------------------------------------------------------------------------
+  backend:
+    name: Backend (pytest)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Pin to Python 3.12 to match the local dev environment.
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Cache the pip install directory keyed on requirements.txt.
+      # A change to any dependency invalidates the cache automatically.
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # pytest.ini already sets testpaths=tests and addopts=-v --tb=short,
+      # so a bare `pytest` picks up the full suite correctly.
+      - name: Run pytest
+        run: pytest
+
+  # ---------------------------------------------------------------------------
+  # Frontend — install Node deps, run the Vite production build.
+  # Vite's build catches bad imports, missing modules, and JSX syntax errors
+  # at compile time, making it an effective type/lint gate without TypeScript.
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: Frontend (Vite build)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Pin to Node 24 to match the local dev environment.
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      # Cache node_modules keyed on package-lock.json (or package.json as fallback).
+      # npm ci requires a lockfile; this cache avoids a full npm install on every run.
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: node-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json', 'frontend/package.json') }}
+          restore-keys: |
+            node-${{ runner.os }}-
+
+      # npm ci installs exact versions from the lockfile — deterministic and faster
+      # than npm install. Falls back to npm install if no lockfile exists yet.
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      # `vite build` exits non-zero on any module resolution or syntax error,
+      # which blocks the PR. Build artifacts are not uploaded — this is CI only.
+      - name: Build (production)
+        run: npm run build
