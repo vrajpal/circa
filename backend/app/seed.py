@@ -1,6 +1,9 @@
 """Seed the database with NFL teams."""
 from app.database import SessionLocal, engine, Base
+from app.logging_config import get_logger
 from app.models import Team
+
+logger = get_logger(__name__)
 
 NFL_TEAMS = [
     ("ARI", "Arizona Cardinals", "NFC", "West"),
@@ -43,12 +46,12 @@ def seed_teams():
     db = SessionLocal()
     try:
         if db.query(Team).count() > 0:
-            print("Teams already seeded.")
+            logger.info("Teams already seeded")
             return
         for abbr, name, conf, div in NFL_TEAMS:
             db.add(Team(abbreviation=abbr, name=name, conference=conf, division=div))
         db.commit()
-        print(f"Seeded {len(NFL_TEAMS)} NFL teams.")
+        logger.info("Seeded %d NFL teams", len(NFL_TEAMS))
     finally:
         db.close()
 

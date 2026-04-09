@@ -1,4 +1,4 @@
-"""Scrape historical NFL odds from sportsoddshistory.com.
+"""Scrape historical NFL odds from covers.com.
 
 Provides spreads and totals for completed games. No API key needed.
 Results are cached to disk to avoid repeat requests.
@@ -13,7 +13,11 @@ import httpx
 from bs4 import BeautifulSoup
 
 from app.database import SessionLocal
+from app.logging_config import setup_logging, get_logger
 from app.models import Game, Team, OddsSnapshot
+
+setup_logging()
+logger = get_logger(__name__)
 
 CACHE_DIR = Path(__file__).parent / "cache"
 SOURCE_NAME = "market_consensus"  # These are closing lines from the market
@@ -32,14 +36,14 @@ def _fetch_page(season: int) -> str:
     cache = _cache_path(season)
 
     if cache.exists():
-        print(f"Using cached HTML for {season}")
+        logger.debug("Using cached HTML for %d", season)
         return cache.read_text()
 
-    print(f"Fetching covers.com/sportsoddshistory for {season}...")
+    logger.info("Fetching covers.com odds history for %d", season)
     resp = httpx.get(URL.format(season=season), headers=HEADERS, timeout=30)
     resp.raise_for_status()
     cache.write_text(resp.text)
-    print(f"Cached to {cache}")
+    logger.debug("Cached to %s", cache)
     return resp.text
 
 
@@ -166,7 +170,7 @@ def parse_season(season: int) -> list[dict]:
 def ingest_season(season: int = 2025):
     """Parse and store historical odds for a season."""
     parsed = parse_season(season)
-    print(f"Parsed {len(parsed)} games from sportsoddshistory.com")
+    logger.info("Parsed %d games from covers.com", len(parsed))
 
     db = SessionLocal()
     try:
@@ -179,7 +183,7 @@ def ingest_season(season: int = 2025):
             away_team = _resolve_team(g["away_name"], teams_by_abbr)
 
             if not home_team or not away_team:
-                print(f"  Could not resolve: {g['home_name']} vs {g['away_name']}")
+                logger.warning("Could not resolve teams: %s vs %s", g["home_name"], g["away_name"])
                 skipped += 1
                 continue
 
@@ -236,7 +240,7 @@ def ingest_season(season: int = 2025):
             added += 1
 
         db.commit()
-        print(f"Added {added} odds snapshots, skipped {skipped}")
+        logger.info("Historical odds: added=%d skipped=%d", added, skipped)
     finally:
         db.close()
 
