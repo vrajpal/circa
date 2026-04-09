@@ -3,8 +3,12 @@ import httpx
 from datetime import datetime
 
 from app.database import SessionLocal
+from app.logging_config import setup_logging, get_logger
 from app.models import Game, Team
 from app.config import settings
+
+setup_logging()
+logger = get_logger(__name__)
 
 ESPN_SCHEDULE_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
 
@@ -62,7 +66,7 @@ def fetch_week(season: int, week: int):
             away_team = teams_by_abbr.get(away_abbr)
 
             if not home_team or not away_team:
-                print(f"Skipping game: unknown team {home_abbr} or {away_abbr}")
+                logger.warning("Skipping game: unknown team %s or %s", home_abbr, away_abbr)
                 continue
 
             # Skip if already exists
@@ -86,7 +90,7 @@ def fetch_week(season: int, week: int):
             added += 1
 
         db.commit()
-        print(f"Week {week}: added {added} games")
+        logger.info("Week %d: added %d games", week, added)
     finally:
         db.close()
 

@@ -3,12 +3,14 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.config import settings
+from app.logging_config import get_logger
 from app.models import Pick, Game, Team, ConsensusPick
 from app.schemas.picks import PickCreate, PickResponse, SlateWarning
 from app.schemas.schedule import TeamResponse
 from app.services.auth import get_current_user
 from app.models import User
 
+logger = get_logger(__name__)
 router = APIRouter(prefix="/api/picks", tags=["picks"])
 
 
@@ -83,6 +85,11 @@ def create_pick(
     db.add(pick)
     db.commit()
     db.refresh(pick)
+    logger.info(
+        "Pick created: user=%s game=%d team=%s contest=%s week=%d",
+        current_user.username, game.id, pick.picked_team.abbreviation,
+        req.contest_type, game.week,
+    )
     return pick
 
 
@@ -95,6 +102,7 @@ def delete_pick(
     pick = db.query(Pick).get(pick_id)
     if not pick or pick.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Pick not found")
+    logger.info("Pick deleted: id=%d user=%s", pick_id, current_user.username)
     db.delete(pick)
     db.commit()
 
@@ -163,6 +171,10 @@ def check_slate_warning(
         available = slate_team_ids - used_ids - {picked_team_id}
         available_teams = db.query(Team).filter(Team.id.in_(available)).all() if available else []
 
+        logger.debug(
+            "Slate warning: team=%s slate=%s remaining=%d",
+            team.abbreviation, game.slate, len(available),
+        )
         return SlateWarning(
             message=f"Picking {team.abbreviation} will reduce your {game.slate} slate pool to {len(available)} teams",
             slate=game.slate,
