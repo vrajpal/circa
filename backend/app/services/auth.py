@@ -8,7 +8,10 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
+from app.logging_config import get_logger
 from app.models import User
+
+logger = get_logger(__name__)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -37,8 +40,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
         user_id = int(payload.get("sub"))
     except (JWTError, TypeError, ValueError):
+        logger.warning("Auth failed: invalid or expired token")
         raise credentials_exception
     user = db.query(User).get(user_id)
     if user is None:
+        logger.warning("Auth failed: token references non-existent user_id=%d", user_id)
         raise credentials_exception
     return user

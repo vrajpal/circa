@@ -6,6 +6,7 @@ import Schedule from './pages/Schedule';
 import GameDetail from './pages/GameDetail';
 import Picks from './pages/Picks';
 import Consensus from './pages/Consensus';
+import Logs from './pages/Logs';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -27,6 +28,7 @@ function AppRoutes() {
         <Route path="/game/:id" element={<ProtectedRoute><GameDetail /></ProtectedRoute>} />
         <Route path="/picks" element={<ProtectedRoute><Picks /></ProtectedRoute>} />
         <Route path="/consensus" element={<ProtectedRoute><Consensus /></ProtectedRoute>} />
+        <Route path="/logs" element={<ProtectedRoute><Logs /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/schedule" />} />
       </Routes>
     </>
