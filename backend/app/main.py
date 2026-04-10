@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, Base
 from app.logging_config import setup_logging, get_logger
-from app.routers import auth, schedule, odds, picks, consensus, team_stats
+from app.routers import auth, schedule, odds, picks, consensus, team_stats, logs
 
 setup_logging()
 logger = get_logger(__name__)
@@ -45,6 +45,7 @@ app.include_router(odds.router)
 app.include_router(picks.router)
 app.include_router(consensus.router)
 app.include_router(team_stats.router)
+app.include_router(logs.router)
 
 logger.info("Circa Contest Planner started")
 

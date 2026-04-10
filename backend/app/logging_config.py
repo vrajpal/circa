@@ -1,8 +1,8 @@
 """Centralized logging configuration.
 
 All application logs use Python's standard logging module with a consistent
-JSON-friendly format. This makes logs parseable by any log aggregator
-(Loki, ELK, CloudWatch, or just grep).
+format. Logs are written to both stdout and a rotating file, making them
+viewable in the terminal and queryable via the log viewer API.
 
 Usage:
     from app.logging_config import get_logger
@@ -17,9 +17,19 @@ Log levels:
 """
 import logging
 import sys
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 LOG_FORMAT = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+# Log file location — next to the database in the backend directory
+LOG_DIR = Path(__file__).parent.parent / "logs"
+LOG_FILE = LOG_DIR / "circa.log"
+
+# Rotate at 5MB, keep 5 backups (25MB total max)
+MAX_BYTES = 5 * 1024 * 1024
+BACKUP_COUNT = 5
 
 
 def setup_logging(level: str = "INFO") -> None:
@@ -30,9 +40,21 @@ def setup_logging(level: str = "INFO") -> None:
     if root.handlers:
         return
 
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT))
-    root.addHandler(handler)
+    formatter = logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+
+    # Stdout handler
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(formatter)
+    root.addHandler(stdout_handler)
+
+    # Rotating file handler
+    LOG_DIR.mkdir(exist_ok=True)
+    file_handler = RotatingFileHandler(
+        LOG_FILE, maxBytes=MAX_BYTES, backupCount=BACKUP_COUNT, encoding="utf-8",
+    )
+    file_handler.setFormatter(formatter)
+    root.addHandler(file_handler)
+
     root.setLevel(getattr(logging, level.upper(), logging.INFO))
 
     # Quiet noisy third-party loggers
