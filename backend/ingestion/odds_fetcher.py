@@ -9,8 +9,12 @@ from datetime import datetime
 from pathlib import Path
 
 from app.database import SessionLocal
+from app.logging_config import setup_logging, get_logger
 from app.models import Game, Team, OddsSnapshot
 from app.config import settings
+
+setup_logging()
+logger = get_logger(__name__)
 
 ODDS_API_URL = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds"
 CACHE_DIR = Path(__file__).parent / "cache"
@@ -34,13 +38,13 @@ def fetch_current_odds(force: bool = False):
     Uses disk cache to avoid redundant API calls. Pass force=True to bypass cache.
     """
     if not settings.odds_api_key:
-        print("No ODDS_API_KEY set — skipping odds fetch")
+        logger.warning("No ODDS_API_KEY set — skipping odds fetch")
         return
 
     CACHE_DIR.mkdir(exist_ok=True)
 
     if not force and _cache_is_fresh():
-        print(f"Using cached odds (< {settings.odds_fetch_interval_minutes}m old)")
+        logger.debug("Using cached odds (< %dm old)", settings.odds_fetch_interval_minutes)
         events = json.loads(CACHE_FILE.read_text())
     else:
         resp = httpx.get(
@@ -55,12 +59,12 @@ def fetch_current_odds(force: bool = False):
         )
         resp.raise_for_status()
         remaining = resp.headers.get("x-requests-remaining", "?")
-        print(f"API call made. Requests remaining this month: {remaining}")
+        logger.info("Odds API call made, requests remaining: %s", remaining)
         events = resp.json()
         CACHE_FILE.write_text(json.dumps(events, indent=2))
 
     if not events:
-        print("No events returned (NFL may be off-season)")
+        logger.info("No events returned (NFL may be off-season)")
         return
 
     db = SessionLocal()
@@ -150,7 +154,7 @@ def fetch_current_odds(force: bool = False):
                 added += 1
 
         db.commit()
-        print(f"Added {added} odds snapshots")
+        logger.info("Added %d odds snapshots", added)
     finally:
         db.close()
 

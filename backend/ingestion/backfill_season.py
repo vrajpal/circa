@@ -26,7 +26,11 @@ import httpx
 
 from app.config import settings
 from app.database import SessionLocal
+from app.logging_config import setup_logging, get_logger
 from app.models import Game, Team
+
+setup_logging()
+logger = get_logger(__name__)
 from app.models.odds import OddsSnapshot
 from app.models.team_stats import TeamStatSnapshot, TeamStanding
 from ingestion.historical_odds_scraper import parse_season as parse_closing_lines
@@ -97,10 +101,10 @@ def backfill_scores(season: int) -> None:
                     game.score_away = scores["away"]["score"]
                     updated += 1
 
-            print(f"  Week {week}: {len(events)} games scored")
+            logger.info("Scores: week %d — %d games", week, len(events))
 
         db.commit()
-        print(f"Scores: updated {updated} games")
+        logger.info("Scores: updated %d games", updated)
     finally:
         db.close()
 
@@ -255,7 +259,7 @@ def synthesize_line_movement(season: int) -> None:
                     added += 1
 
         db.commit()
-        print(f"Line movement: synthesized {added} snapshots across {len(games)} games")
+        logger.info("Line movement: synthesized %d snapshots across %d games", added, len(games))
     finally:
         db.close()
 
@@ -267,7 +271,7 @@ def synthesize_line_movement(season: int) -> None:
 def backfill_team_stats(season: int, force: bool = False) -> None:
     """Ingest team stats for every week of the season."""
     for week in range(1, 19):
-        print(f"  Ingesting stats for week {week}...")
+        logger.info("Ingesting stats for week %d", week)
         ingest_team_stats(season, week, force=force)
 
 
@@ -287,29 +291,29 @@ def run(
 ) -> None:
     season = season or settings.current_season
 
-    print(f"=== Backfilling {season} NFL season ===\n")
+    logger.info("=== Backfilling %d NFL season ===", season)
 
-    print("[1/5] Backfilling scores from ESPN...")
+    logger.info("[1/5] Backfilling scores from ESPN")
     backfill_scores(season)
 
     if scores_only:
-        print("\nDone (scores only).")
+        logger.info("Done (scores only)")
         return
 
-    print("\n[2/5] Backfilling closing lines from Covers.com...")
+    logger.info("[2/5] Backfilling closing lines from Covers.com")
     backfill_closing_lines(season)
 
-    print("\n[3/5] Synthesizing line movement...")
+    logger.info("[3/5] Synthesizing line movement")
     random.seed(season)  # Deterministic for reproducibility
     synthesize_line_movement(season)
 
-    print("\n[4/5] Backfilling team stats (all 18 weeks)...")
+    logger.info("[4/5] Backfilling team stats (all 18 weeks)")
     backfill_team_stats(season, force=force)
 
-    print("\n[5/5] Backfilling standings...")
+    logger.info("[5/5] Backfilling standings")
     backfill_standings(season, force=force)
 
-    print("\n=== Backfill complete ===")
+    logger.info("=== Backfill complete ===")
 
 
 if __name__ == "__main__":

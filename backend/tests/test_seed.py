@@ -26,17 +26,17 @@ class TestSeedTeams:
         assert session.query(Team).count() == 32
         session.close()
 
-    def test_idempotent_second_run(self, capsys):
+    def test_idempotent_second_run(self, caplog):
         eng = self._make_engine()
         Session = sessionmaker(bind=eng)
         with patch("app.seed.engine", eng), patch("app.seed.SessionLocal", Session):
             seed_teams()
-            seed_teams()
+            with caplog.at_level("INFO", logger="app.seed"):
+                seed_teams()
         session = Session()
         assert session.query(Team).count() == 32
         session.close()
-        captured = capsys.readouterr()
-        assert "already seeded" in captured.out.lower()
+        assert "already seeded" in caplog.text.lower()
 
     def test_nfl_teams_constant_has_32_entries(self):
         assert len(NFL_TEAMS) == 32
