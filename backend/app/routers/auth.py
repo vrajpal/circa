@@ -2,10 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.logging_config import get_logger
 from app.models import User
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserResponse
 from app.services.auth import hash_password, verify_password, create_access_token, get_current_user
 
+logger = get_logger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
@@ -19,6 +21,7 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+    logger.info("User registered: %s (id=%d)", user.username, user.id)
     return user
 
 
@@ -26,8 +29,10 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == req.username).first()
     if not user or not verify_password(req.password, user.password_hash):
+        logger.warning("Login failed for username=%s", req.username)
         raise HTTPException(status_code=401, detail="Invalid username or password")
     token = create_access_token(user.id)
+    logger.info("User logged in: %s (id=%d)", user.username, user.id)
     return TokenResponse(access_token=token)
 
 

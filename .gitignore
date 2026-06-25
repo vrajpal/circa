@@ -22,6 +22,9 @@ frontend/dist/
 backend/htmlcov/
 .pytest_cache/
 
+# Logs
+backend/logs/
+
 # Ingestion cache (regenerable via fetchers)
 backend/ingestion/cache/
 

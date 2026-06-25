@@ -3,10 +3,12 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.config import settings
+from app.logging_config import get_logger
 from app.models import Pick, ConsensusPick, User, Game, OddsSnapshot
 from app.schemas.picks import ConsensusPickCreate, ConsensusPickResponse, PickResponse
 from app.services.auth import get_current_user
 
+logger = get_logger(__name__)
 router = APIRouter(prefix="/api/consensus", tags=["consensus"])
 
 
@@ -88,6 +90,10 @@ def lock_consensus_pick(
     db.add(pick)
     db.commit()
     db.refresh(pick)
+    logger.info(
+        "Consensus locked: team=%s contest=%s week=%d season=%d by user=%s",
+        pick.picked_team.abbreviation, req.contest_type, week, s, current_user.username,
+    )
     return pick
 
 
@@ -100,5 +106,9 @@ def unlock_consensus_pick(
     pick = db.query(ConsensusPick).get(pick_id)
     if not pick:
         raise HTTPException(status_code=404, detail="Consensus pick not found")
+    logger.info(
+        "Consensus unlocked: team=%s contest=%s week=%d by user=%s",
+        pick.picked_team.abbreviation, pick.contest_type, pick.week, current_user.username,
+    )
     db.delete(pick)
     db.commit()

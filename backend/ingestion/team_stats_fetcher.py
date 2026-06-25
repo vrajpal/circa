@@ -25,9 +25,13 @@ import httpx
 
 from app.config import settings
 from app.database import SessionLocal
+from app.logging_config import setup_logging, get_logger
 from app.models import Team
 from app.models.team_stats import TeamStatSnapshot, TeamStanding
 from ingestion.team_stats_normalizer import normalize_espn_team_stats, normalize_espn_standing
+
+setup_logging()
+logger = get_logger(__name__)
 
 SOURCE = "espn"
 CACHE_DIR = Path(__file__).parent / "cache"
@@ -186,20 +190,20 @@ def ingest_team_stats(season: int, week: int, force: bool = False) -> None:
         for abbr, team in teams_by_abbr.items():
             espn_id = ESPN_TEAM_ID_MAP.get(abbr)
             if not espn_id:
-                print(f"  No ESPN ID for {abbr} — skipping")
+                logger.warning("No ESPN ID for %s — skipping", abbr)
                 errors += 1
                 continue
 
             try:
                 raw = _fetch_team_stats_raw(espn_id, season, week, force)
             except httpx.HTTPError as exc:
-                print(f"  HTTP error fetching stats for {abbr}: {exc}")
+                logger.error("HTTP error fetching stats for %s: %s", abbr, exc)
                 errors += 1
                 continue
 
             categories = _extract_categories(raw)
             if not categories:
-                print(f"  No stats categories for {abbr} in ESPN response")
+                logger.warning("No stats categories for %s in ESPN response", abbr)
                 errors += 1
                 continue
 
@@ -236,9 +240,9 @@ def ingest_team_stats(season: int, week: int, force: bool = False) -> None:
                 added += 1
 
         db.commit()
-        print(
-            f"Team stats (season={season}, week={week}): "
-            f"added={added}, updated={updated}, errors={errors}"
+        logger.info(
+            "Team stats (season=%d, week=%d): added=%d updated=%d errors=%d",
+            season, week, added, updated, errors,
         )
     finally:
         db.close()
@@ -253,7 +257,7 @@ def ingest_standings(season: int, force: bool = False) -> None:
         try:
             raw = _fetch_standings_raw(season, force)
         except httpx.HTTPError as exc:
-            print(f"HTTP error fetching standings: {exc}")
+            logger.error("HTTP error fetching standings: %s", exc)
             return
 
         # ESPN standings are nested: conferences -> divisions -> teams.
@@ -293,7 +297,7 @@ def ingest_standings(season: int, force: bool = False) -> None:
                 team_abbr = {"WSH": "WAS", "JAX": "JAX"}.get(team_abbr, team_abbr)
                 team = teams_by_abbr.get(team_abbr)
                 if not team:
-                    print(f"  Unknown team abbreviation in standings: {team_abbr!r}")
+                    logger.warning("Unknown team abbreviation in standings: %r", team_abbr)
                     continue
 
                 normalized = normalize_espn_standing(entry)
@@ -335,7 +339,7 @@ def ingest_standings(season: int, force: bool = False) -> None:
                     added += 1
 
         db.commit()
-        print(f"Standings (season={season}): added={added}, updated={updated}")
+        logger.info("Standings (season=%d): added=%d updated=%d", season, added, updated)
     finally:
         db.close()
 
@@ -344,7 +348,7 @@ def run(season: int | None = None, week: int | None = None, force: bool = False)
     """Convenience entry point: ingest both stats and standings."""
     season = season or settings.current_season
     week = week or _current_week(season)
-    print(f"Ingesting team stats for season={season}, week={week}")
+    logger.info("Ingesting team stats for season=%d, week=%d", season, week)
     ingest_team_stats(season, week, force=force)
     ingest_standings(season, force=force)
 

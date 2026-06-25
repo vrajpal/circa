@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { path: '/schedule', label: 'Schedule' },
   { path: '/picks', label: 'Picks' },
   { path: '/consensus', label: 'Consensus' },
+  { path: '/logs', label: 'Logs' },
 ];
 
 export default function Navbar() {
