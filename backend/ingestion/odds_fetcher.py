@@ -144,6 +144,10 @@ def fetch_current_odds(force: bool = False):
                     moneyline_home=ml_home,
                     moneyline_away=ml_away,
                     is_opening=existing_count == 0,
+                    # First snapshot for a game is the opening line; subsequent
+                    # in-season fetches are live. The closing line is set
+                    # separately once the line is final.
+                    line_type=("opening" if existing_count == 0 else "live"),
                     captured_at=now,
                 )
                 db.add(snapshot)

@@ -9,6 +9,18 @@ function record(standing) {
   return ties > 0 ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`;
 }
 
+function atsRecord(standing) {
+  if (!standing || standing.ats_wins == null) return '—';
+  const { ats_wins = 0, ats_losses = 0, ats_pushes = 0 } = standing;
+  return ats_pushes > 0 ? `${ats_wins}-${ats_losses}-${ats_pushes}` : `${ats_wins}-${ats_losses}`;
+}
+
+function ouRecord(standing) {
+  if (!standing || standing.ou_overs == null) return '—';
+  const { ou_overs = 0, ou_unders = 0, ou_pushes = 0 } = standing;
+  return ou_pushes > 0 ? `${ou_overs}-${ou_unders}-${ou_pushes}` : `${ou_overs}-${ou_unders}`;
+}
+
 function StatRow({ label, away, home, inverse = false }) {
   const awayVal = parseFloat(away);
   const homeVal = parseFloat(home);
@@ -93,6 +105,8 @@ export default function MatchupStats({ matchup }) {
         <>
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-1 mt-4">Standings</p>
           <StatRow label="Home" away={away_standing ? `${away_standing.away_wins ?? 0}-${away_standing.away_losses ?? 0}` : '—'} home={home_standing ? `${home_standing.home_wins ?? 0}-${home_standing.home_losses ?? 0}` : '—'} />
+          <StatRow label="ATS" away={atsRecord(away_standing)} home={atsRecord(home_standing)} />
+          <StatRow label="O/U" away={ouRecord(away_standing)} home={ouRecord(home_standing)} />
           <StatRow label="Div Rank" away={away_standing?.division_rank ?? '—'} home={home_standing?.division_rank ?? '—'} inverse />
           <StatRow label="SOS" away={fmt(away_standing?.strength_of_schedule, 3)} home={fmt(home_standing?.strength_of_schedule, 3)} />
         </>

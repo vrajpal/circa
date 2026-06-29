@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import ResultBadge from './ResultBadge';
 
 function formatSpread(val) {
   if (val == null) return '—';
@@ -34,7 +35,10 @@ export default function GameCard({ game, odds, onPick, pickMode, userPick }) {
           <div className={`flex justify-between items-center ${
             pickMode && userPick?.picked_team?.id === game.away_team.id ? 'bg-emerald-900/30 -mx-2 px-2 py-1 rounded' : ''
           }`}>
-            <span className="font-medium text-gray-100">{game.away_team.abbreviation}</span>
+            <span className="font-medium text-gray-100 flex items-center gap-2">
+              {game.away_team.abbreviation}
+              {userPick?.picked_team?.id === game.away_team.id && <ResultBadge result={userPick.result} />}
+            </span>
             <span className="text-sm text-gray-400">
               {latestOdds ? formatSpread(-(latestOdds.spread_home)) : '—'}
             </span>
@@ -42,7 +46,10 @@ export default function GameCard({ game, odds, onPick, pickMode, userPick }) {
           <div className={`flex justify-between items-center ${
             pickMode && userPick?.picked_team?.id === game.home_team.id ? 'bg-emerald-900/30 -mx-2 px-2 py-1 rounded' : ''
           }`}>
-            <span className="font-medium text-gray-100">{game.home_team.abbreviation}</span>
+            <span className="font-medium text-gray-100 flex items-center gap-2">
+              {game.home_team.abbreviation}
+              {userPick?.picked_team?.id === game.home_team.id && <ResultBadge result={userPick.result} />}
+            </span>
             <span className="text-sm text-gray-400">
               {latestOdds ? formatSpread(latestOdds.spread_home) : '—'}
             </span>

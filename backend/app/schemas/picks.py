@@ -24,6 +24,9 @@ class PickResponse(BaseModel):
     picked_team: TeamResponse
     comment: str | None
     created_at: datetime
+    # Graded outcome: "pending" until the game is graded, then win/loss/push.
+    result: str
+    graded_at: datetime | None
 
 
 class ConsensusPickCreate(BaseModel):
@@ -42,6 +45,9 @@ class ConsensusPickResponse(BaseModel):
     game: GameResponse | None
     picked_team: TeamResponse
     decided_at: datetime
+    # Graded outcome: "pending" until the game is graded, then win/loss/push.
+    result: str
+    graded_at: datetime | None
 
 
 class SlateWarning(BaseModel):

@@ -19,6 +19,13 @@ class Pick(Base):
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+    # Graded outcome. "pending" until the game is graded, then win/loss/push.
+    result: Mapped[str] = mapped_column(String(10), default="pending")
+    graded_against_snapshot_id: Mapped[int | None] = mapped_column(
+        ForeignKey("odds_snapshots.id"), nullable=True
+    )
+    graded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     user = relationship("User", lazy="joined")
     game = relationship("Game", lazy="joined")
     picked_team = relationship("Team", lazy="joined")
@@ -34,6 +41,13 @@ class ConsensusPick(Base):
     game_id: Mapped[int | None] = mapped_column(ForeignKey("games.id"), nullable=True)
     picked_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
     decided_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Graded outcome of the group's consensus pick. "pending" until graded.
+    result: Mapped[str] = mapped_column(String(10), default="pending")
+    graded_against_snapshot_id: Mapped[int | None] = mapped_column(
+        ForeignKey("odds_snapshots.id"), nullable=True
+    )
+    graded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     game = relationship("Game", lazy="joined")
     picked_team = relationship("Team", lazy="joined")
