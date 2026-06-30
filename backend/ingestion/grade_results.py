@@ -47,11 +47,17 @@ def _run(db, source: str, season: int):
     try:
         yield counter
         run.status = "success"
-    except Exception as exc:  # noqa: BLE001 — we re-raise after recording
+    except Exception as exc:  # noqa: BLE001 — recorded on the run row, then re-raised
+        # The stage's transaction is poisoned; roll it back so the audit-row
+        # update below commits on a clean session instead of silently failing.
+        db.rollback()
         run.status = "error"
         run.error = str(exc)[:2000]
         raise
     finally:
+        # run may have been expired by the rollback above; merge it back so the
+        # status/row-count update reliably persists either way.
+        run = db.merge(run)
         run.rows_written = counter["rows"]
         run.finished_at = datetime.utcnow()
         db.commit()

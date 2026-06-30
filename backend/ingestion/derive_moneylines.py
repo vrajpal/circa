@@ -52,11 +52,17 @@ def derive_for_season(season: int) -> int:
         db.commit()
         run.status = "success"
         print(f"  derive_moneylines: filled {filled} closing snapshots")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — recorded on the run row, then re-raised
+        # The work transaction is poisoned; roll it back so the audit-row
+        # update below commits on a clean session instead of silently failing.
+        db.rollback()
         run.status = "error"
         run.error = str(exc)[:2000]
         raise
     finally:
+        # run may have been expired by the rollback above; merge it back so the
+        # status/row-count update reliably persists either way.
+        run = db.merge(run)
         run.rows_written = filled
         run.finished_at = datetime.utcnow()
         db.commit()
