@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
+import ResultBadge from '../components/ResultBadge';
 
 function formatSpread(val) {
   if (val == null) return '—';
@@ -109,6 +110,7 @@ export default function Consensus() {
             {locked.map((lp) => (
               <div key={lp.id} className="flex items-center gap-2 bg-emerald-900/30 rounded-lg px-3 py-2">
                 <span className="font-medium text-sm">{lp.picked_team?.abbreviation}</span>
+                <ResultBadge result={lp.result} />
                 {lp.game && (
                   <span className="text-xs text-gray-400">
                     {lp.game.away_team.abbreviation} @ {lp.game.home_team.abbreviation}
@@ -177,10 +179,11 @@ export default function Consensus() {
                   {gamePicks.map((p) => (
                     <div key={p.id} className="flex items-start gap-3 text-sm">
                       <span className="text-gray-500 min-w-[80px]">{p.user?.username}</span>
-                      <span className={`font-medium ${
+                      <span className={`font-medium flex items-center gap-1.5 ${
                         p.picked_team?.id === game.home_team.id ? 'text-blue-400' : 'text-orange-400'
                       }`}>
                         {p.picked_team?.abbreviation}
+                        <ResultBadge result={p.result} />
                       </span>
                       {p.comment && <span className="text-gray-500 italic">"{p.comment}"</span>}
                     </div>

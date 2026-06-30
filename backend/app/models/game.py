@@ -22,3 +22,6 @@ class Game(Base):
     home_team = relationship("Team", foreign_keys=[home_team_id], lazy="joined")
     away_team = relationship("Team", foreign_keys=[away_team_id], lazy="joined")
     odds_snapshots = relationship("OddsSnapshot", back_populates="game", lazy="dynamic")
+    # One graded result per game, written by the grading stage once a game has a
+    # final score and a real closing line. None until graded.
+    result = relationship("GameResult", back_populates="game", uselist=False, lazy="joined")

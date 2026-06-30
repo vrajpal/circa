@@ -58,6 +58,17 @@ class TeamStandingResponse(BaseModel):
     home_losses: int | None
     away_wins: int | None
     away_losses: int | None
+
+    # Against-the-spread record vs the closing line
+    ats_wins: int | None
+    ats_losses: int | None
+    ats_pushes: int | None
+
+    # Over/under record vs the closing total
+    ou_overs: int | None
+    ou_unders: int | None
+    ou_pushes: int | None
+
     updated_at: datetime
 
 

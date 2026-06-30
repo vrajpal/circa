@@ -104,6 +104,17 @@ class TeamStanding(Base):
     away_wins: Mapped[int | None] = mapped_column(Integer, nullable=True)
     away_losses: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Against-the-spread record vs the closing line. Directly relevant to
+    # Millions handicapping. Derived by the grading stage from GameResult.
+    ats_wins: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ats_losses: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ats_pushes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Over/under record vs the closing total.
+    ou_overs: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ou_unders: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ou_pushes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     team = relationship("Team", lazy="joined")

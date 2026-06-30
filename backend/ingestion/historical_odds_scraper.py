@@ -230,6 +230,7 @@ def ingest_season(season: int = 2025):
                 moneyline_home=None,
                 moneyline_away=None,
                 is_opening=False,  # These are closing lines
+                line_type="closing",
                 captured_at=game.game_time,  # Use game time as the snapshot time
             )
             db.add(snapshot)

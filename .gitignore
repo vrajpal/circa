@@ -25,5 +25,9 @@ backend/htmlcov/
 # Ingestion cache (regenerable via fetchers)
 backend/ingestion/cache/
 
+# Logs
+backend/logs/
+*.log
+
 # Claude
 .claude/

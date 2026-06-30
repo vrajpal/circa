@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.config import settings
-from app.models import Game, Team
-from app.schemas.schedule import GameResponse, TeamResponse
+from app.models import Game, GameResult, Team
+from app.schemas.schedule import GameResponse, GameResultResponse, TeamResponse
 
 router = APIRouter(prefix="/api/schedule", tags=["schedule"])
 
@@ -45,3 +45,9 @@ def get_game(game_id: int, db: Session = Depends(get_db)):
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Game not found")
     return game
+
+
+@router.get("/games/{game_id}/result", response_model=GameResultResponse | None)
+def get_game_result(game_id: int, db: Session = Depends(get_db)):
+    """Graded outcome for a game, or null if it hasn't been graded yet."""
+    return db.query(GameResult).filter(GameResult.game_id == game_id).first()

@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import engine, Base
 from app.routers import auth, schedule, odds, picks, consensus, team_stats
 
-# Create tables on startup (Alembic used for production migrations)
-Base.metadata.create_all(bind=engine)
+# Schema is owned by Alembic — run `alembic upgrade head` to provision/migrate.
+# (This module used to call Base.metadata.create_all on import, which raced
+# ahead of migrations and created tables Alembic didn't know about.)
 
 app = FastAPI(title="Circa Contest Planner", version="0.1.0")
 

@@ -249,6 +249,7 @@ def synthesize_line_movement(season: int) -> None:
                         moneyline_home=ml_home,
                         moneyline_away=ml_away,
                         is_opening=(i == 0),
+                        line_type=("opening" if i == 0 else "live"),
                         captured_at=timestamp,
                     )
                     db.add(snapshot)
@@ -289,25 +290,33 @@ def run(
 
     print(f"=== Backfilling {season} NFL season ===\n")
 
-    print("[1/5] Backfilling scores from ESPN...")
+    print("[1/7] Backfilling scores from ESPN...")
     backfill_scores(season)
 
     if scores_only:
         print("\nDone (scores only).")
         return
 
-    print("\n[2/5] Backfilling closing lines from Covers.com...")
+    print("\n[2/7] Backfilling closing lines from Covers.com...")
     backfill_closing_lines(season)
 
-    print("\n[3/5] Synthesizing line movement...")
+    print("\n[3/7] Synthesizing line movement...")
     random.seed(season)  # Deterministic for reproducibility
     synthesize_line_movement(season)
 
-    print("\n[4/5] Backfilling team stats (all 18 weeks)...")
+    print("\n[4/7] Deriving moneylines from closing spreads...")
+    from ingestion.derive_moneylines import derive_for_season
+    derive_for_season(season)
+
+    print("\n[5/7] Backfilling team stats (all 18 weeks)...")
     backfill_team_stats(season, force=force)
 
-    print("\n[5/5] Backfilling standings...")
+    print("\n[6/7] Backfilling standings...")
     backfill_standings(season, force=force)
+
+    print("\n[7/7] Grading games, picks, and team ATS/OU form...")
+    from ingestion.grade_results import grade_season
+    grade_season(season)
 
     print("\n=== Backfill complete ===")
 
