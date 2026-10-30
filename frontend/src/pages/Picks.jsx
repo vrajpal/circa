@@ -4,16 +4,32 @@ import api from '../api';
 import GameCard from '../components/GameCard';
 import SurvivorTracker from '../components/SurvivorTracker';
 
+// Unconfirmed pick state survives a page refresh via localStorage, keyed per user
+// so teammates sharing a browser don't see each other's drafts.
+function loadDraft(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key)) || {};
+  } catch {
+    return {};
+  }
+}
+
 export default function Picks() {
   const { user } = useAuth();
-  const [week, setWeek] = useState(1);
-  const [contestType, setContestType] = useState('millions');
+  const draftKey = `picksDraft:${user?.id}`;
+  const [draft] = useState(() => loadDraft(draftKey));
+  const [week, setWeek] = useState(draft.week ?? 1);
+  const [contestType, setContestType] = useState(draft.contestType ?? 'millions');
   const [games, setGames] = useState([]);
   const [picks, setPicks] = useState([]);
   const [oddsMap, setOddsMap] = useState({});
-  const [comment, setComment] = useState('');
-  const [pendingPick, setPendingPick] = useState(null);
+  const [comment, setComment] = useState(draft.comment ?? '');
+  const [pendingPick, setPendingPick] = useState(draft.pendingPick ?? null);
   const [warning, setWarning] = useState(null);
+
+  useEffect(() => {
+    localStorage.setItem(draftKey, JSON.stringify({ week, contestType, comment, pendingPick }));
+  }, [draftKey, week, contestType, comment, pendingPick]);
 
   useEffect(() => {
     api.get('/schedule/games', { params: { week } }).then((res) => {
@@ -31,6 +47,14 @@ export default function Picks() {
       .then((res) => setPicks(res.data))
       .catch(() => {});
   }, [week, contestType, user]);
+
+  // A restored survivor draft gets a fresh slate warning rather than a stale saved one.
+  useEffect(() => {
+    if (!draft.pendingPick || draft.contestType !== 'survivor') return;
+    api.get('/picks/survivor/slate-warning', { params: { picked_team_id: draft.pendingPick.team.id } })
+      .then((res) => setWarning(res.data || null))
+      .catch(() => {});
+  }, [draft]);
 
   const handlePick = async (game, team) => {
     // Check slate warning for survivor
