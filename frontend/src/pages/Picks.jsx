@@ -24,7 +24,11 @@ export default function Picks() {
   const [picks, setPicks] = useState([]);
   const [oddsMap, setOddsMap] = useState({});
   const [comment, setComment] = useState(draft.comment ?? '');
-  const [pendingPick, setPendingPick] = useState(draft.pendingPick ?? null);
+  // A pending pick carries the contest it was made for, so switching tabs before
+  // confirming can't file it under the other contest.
+  const [pendingPick, setPendingPick] = useState(
+    draft.pendingPick ? { contestType: draft.contestType, ...draft.pendingPick } : null,
+  );
   const [warning, setWarning] = useState(null);
 
   useEffect(() => {
@@ -50,11 +54,11 @@ export default function Picks() {
 
   // A restored survivor draft gets a fresh slate warning rather than a stale saved one.
   useEffect(() => {
-    if (!draft.pendingPick || draft.contestType !== 'survivor') return;
-    api.get('/picks/survivor/slate-warning', { params: { picked_team_id: draft.pendingPick.team.id } })
+    if (pendingPick?.contestType !== 'survivor') return;
+    api.get('/picks/survivor/slate-warning', { params: { picked_team_id: pendingPick.team.id } })
       .then((res) => setWarning(res.data || null))
       .catch(() => {});
-  }, [draft]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- only re-check the pick restored on load
 
   const handlePick = async (game, team) => {
     // Check slate warning for survivor
@@ -67,8 +71,10 @@ export default function Picks() {
           setWarning(null);
         }
       } catch { setWarning(null); }
+    } else {
+      setWarning(null);
     }
-    setPendingPick({ game, team });
+    setPendingPick({ game, team, contestType });
   };
 
   const confirmPick = async () => {
@@ -77,7 +83,7 @@ export default function Picks() {
       await api.post('/picks/', {
         game_id: pendingPick.game.id,
         picked_team_id: pendingPick.team.id,
-        contest_type: contestType,
+        contest_type: pendingPick.contestType,
         comment: comment || null,
       });
       // Refresh picks
@@ -143,7 +149,8 @@ export default function Picks() {
         <div className="mb-6 bg-gray-900 border border-emerald-800 rounded-lg p-4">
           <p className="text-sm mb-2">
             Pick <strong className="text-emerald-400">{pendingPick.team.abbreviation}</strong> in{' '}
-            {pendingPick.game.away_team.abbreviation} @ {pendingPick.game.home_team.abbreviation}?
+            {pendingPick.game.away_team.abbreviation} @ {pendingPick.game.home_team.abbreviation} for{' '}
+            {pendingPick.contestType === 'survivor' ? 'Survivor' : 'Millions'}?
           </p>
           {warning && (
             <div className="mb-3 bg-amber-900/30 border border-amber-800 rounded-lg p-3">
